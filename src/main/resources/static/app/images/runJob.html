@@ -1,0 +1,353 @@
+
+<!doctype html>
+<html>
+	
+	<head>
+		<meta charset="UTF-8" />
+		<link rel="stylesheet" href="css/global.css"> 
+		<link rel="stylesheet" href="css/redmond/jquery-ui-1.10.1.custom.min.css"> 
+		<link rel="stylesheet" href="css/jquery.multiselect.css"> 
+		<script type="text/javascript" src="js/jquery-1.9.1.js"></script> 
+		<script type="text/javascript" src="js/jquery-ui-1.10.1.custom.min.js"></script> 
+		<script type="text/javascript" src="js/jquery.multiselect.min.js"></script> 
+		<script type="text/javascript" src="js/Elapsed.js"></script> 
+	</head>	
+	<body>
+		<script>
+			JobRunner = function($) {
+				var Runner = function() {
+					this.runContexts = {};
+				};
+				
+				Runner.prototype.runJob = function(count, feedName, force) {
+					var r = this,
+						context = r.getContext(count, feedName);
+
+					if( ! context.running) {
+						context.running = true;
+						context.elapsed.timer = undefined;
+						context.elapsed.start();
+						r.showProgressIndicatory('.progress-indicator-'+count);
+						r.startFeed(count, feedName, force);
+					}
+				};	
+				
+				Runner.prototype.startFeed = function(count, feedName, force) {
+					var r = this,
+						context,
+						url = "rest/dp/runFeedAsync",
+						data = {
+							"t" : new Date().getTime()*Math.random(),
+							"feedName" : feedName,
+							"force" : force
+						};
+					
+					$.getJSON( url, data, function(data){
+						// Feed has started begin checking
+						if(data.code == "STARTED") {
+							r.scheduleStillRunningCheck(count, feedName);
+						} else {
+							context = r.getContext(count, feedName);
+							r.runCompleted(context);
+							alert(data.message);
+						}
+					}).error(function() { 
+						alert("An error occured while trying to run the feed "+feedName);
+					});
+				};
+				
+				Runner.prototype.getContext = function(count, feedName) {
+					if(this.runContexts[feedName] == undefined) {
+						this.runContexts[feedName] = {
+							"count" : count,
+							"feedName" : feedName,
+							"elapsed" : new vw.Elapsed('.elapsed-'+count),
+							"timer" : undefined,
+							"running" : false
+						};
+					}
+					return this.runContexts[feedName];
+				};
+				
+				Runner.prototype.showProgressIndicatory = function(selector) {
+					$(selector).html('<img src="img/ajax-loader.gif">').show();
+				};
+				
+				Runner.prototype.scheduleStillRunningCheck = function(count, feedName) {
+					var r = this,
+						context = r.getContext(count, feedName);
+					
+					if(context.timer == undefined) {
+						// Schedule another check after a short wait period but only if the timer is not already scheduled to run
+						context.timer = setTimeout(function() { 
+							r.checkIfStillRunning(count, feedName); 
+						}, 1000);
+					}
+				};
+				
+				/**
+				 * Makes a call to the server.  If the job is still running then runWhenNotFinishedCallback is 
+				 * executed, if the job is complete then runWhenFinishedCallback is executed.
+				 */
+				Runner.prototype.checkIfStillRunning = function(count, feedName) {
+					var r = this,
+						context = r.getContext(count, feedName),
+						url = "rest/dp/isRunning",
+						data = {
+							"t" : new Date().getTime()*Math.random(),
+							"feedName" : feedName
+						};	
+					
+					// Unset the timer so it can  be rescheduled 
+					context.timer = undefined;
+					
+					// Execute the call to check if the job is finished
+					$.getJSON( url, data, function(data){
+						if(data.code == "FALSE") {
+							r.runCompleted(context);
+						} else {
+							r.scheduleStillRunningCheck(count, feedName);
+						}
+					}).error(function() { 
+						alert("An error was recieve when trying to check the feed status");
+						r.runCompleted(context);
+					});
+				};
+				
+				Runner.prototype.runCompleted = function(context) {
+					// remove the current context so that it can be rerun if needed
+					context.running = false;
+					context.elapsed.end();
+					$('.progress-indicator-'+context.count).fadeOut('fast');
+				};
+				
+				return Runner;
+			}($);
+			
+			var runner = new JobRunner();
+			
+			$(document).ready(function() {
+				$('.run-job').click(function(evt) {
+					var jobNum = $(evt.currentTarget).attr('data-jobNum');
+					var feedName = $(evt.currentTarget).attr('data-feedName');
+					var cb = $(evt.currentTarget).parent().find(':first-child');
+					var checked = (cb.is(':checked')) ? 1 : 0;
+					
+					runner.runJob(jobNum, feedName, checked);
+				});
+			});
+		</script>
+		
+		<noscript>
+			<h1 class="error">This site will not function at all without JavaScript enable it and try again</h1>
+		</noscript>
+		
+		<div id="main-content">
+			<div id="navbar-container">
+				<h1 id="settings-title">GMPS Admin</h1>
+				
+<ul id="navbar">
+	
+	<li class="navbar-item">
+		<a href="index.html">Choose Program</a>
+	</li>
+	
+	<li class="navbar-item navbar-item-selected">
+		<a href="runJob.html">Job Manager</a>
+	</li>
+	
+	<li class="navbar-item">
+		<a href="jobScheduling.html">Job Schedule</a>
+	</li>
+	
+	<li class="navbar-item">
+		<a href="scheduleAJob.html">Schedule Job</a>
+	</li>
+	
+	<li class="navbar-item">
+		<a href="admin.html">Administration</a>
+	</li>
+	
+	
+	<li class="navbar-item">
+		<a href="feedLog.html">Logs</a>
+	</li>
+</ul>	
+			</div>
+		</div>
+		
+		<div id="mainview">
+			<div id="mainview-content">
+				<div id="toplevel-page-container">
+					<div class="logout">
+						<a href="https://caslogin-dit.cobalt.com/cas/logout?service=http%3A%2F%2Flocalhost%3A8888%2FrunJob.html">LOG OUT</a>
+						<div class="host-id">88643@pun-shelarr-m.ds.ad.adp.com</div>
+					</div>
+					<div id="page-contents" class="page-view">
+			<h1 class="page">Job Manager</h1>
+				<table class="job-manager-list">
+					
+					<tr class="result-row">
+						<form>
+							<td width="50%">
+								<b>ActivEngage Extract Job</b><br/>
+								This feed extracts ActivEngage enrolled dealer data.
+							</td><td width="25%">
+								<input type="checkbox" name="force" value="1"> Check if the job is stuck and you need to force it.<br>
+								<input type="button" class="run-job feed-button" data-jobNum="1" data-feedName="ActivEngage Extract Job" value="Start ActivEngage Extract Job" />
+							</td><td style="vertical-align: middle">
+								<span class="progress-indicator-1 progress"></span>
+								<span class="elapsed-1 elapsed"></span>
+							</td>
+						</form>	
+					</tr>
+					
+					<tr class="result-row">
+						<form>
+							<td width="50%">
+								<b>CDK Taxonomy Export Job</b><br/>
+								This feed extracts GM vehicle taxonomy.
+							</td><td width="25%">
+								<input type="checkbox" name="force" value="1"> Check if the job is stuck and you need to force it.<br>
+								<input type="button" class="run-job feed-button" data-jobNum="2" data-feedName="CDK Taxonomy Export Job" value="Start CDK Taxonomy Export Job" />
+							</td><td style="vertical-align: middle">
+								<span class="progress-indicator-2 progress"></span>
+								<span class="elapsed-2 elapsed"></span>
+							</td>
+						</form>	
+					</tr>
+					
+					<tr class="result-row">
+						<form>
+							<td width="50%">
+								<b>Chrome Dealer Enrollment Job </b><br/>
+								This feed imports the accessory vendor, either Chrome or GMAZ
+							</td><td width="25%">
+								<input type="checkbox" name="force" value="1"> Check if the job is stuck and you need to force it.<br>
+								<input type="button" class="run-job feed-button" data-jobNum="3" data-feedName="Chrome Dealer Enrollment Job " value="Start Chrome Dealer Enrollment Job " />
+							</td><td style="vertical-align: middle">
+								<span class="progress-indicator-3 progress"></span>
+								<span class="elapsed-3 elapsed"></span>
+							</td>
+						</form>	
+					</tr>
+					
+					<tr class="result-row">
+						<form>
+							<td width="50%">
+								<b>Dealer locator Extract Job</b><br/>
+								This feed extracts dealer data for Dealer Locator.
+							</td><td width="25%">
+								<input type="checkbox" name="force" value="1"> Check if the job is stuck and you need to force it.<br>
+								<input type="button" class="run-job feed-button" data-jobNum="4" data-feedName="Dealer locator Extract Job" value="Start Dealer locator Extract Job" />
+							</td><td style="vertical-align: middle">
+								<span class="progress-indicator-4 progress"></span>
+								<span class="elapsed-4 elapsed"></span>
+							</td>
+						</form>	
+					</tr>
+					
+					<tr class="result-row">
+						<form>
+							<td width="50%">
+								<b>GM Dealer Data Extract Job</b><br/>
+								This feed extracts dealer data and writes to file for GM.
+							</td><td width="25%">
+								<input type="checkbox" name="force" value="1"> Check if the job is stuck and you need to force it.<br>
+								<input type="button" class="run-job feed-button" data-jobNum="5" data-feedName="GM Dealer Data Extract Job" value="Start GM Dealer Data Extract Job" />
+							</td><td style="vertical-align: middle">
+								<span class="progress-indicator-5 progress"></span>
+								<span class="elapsed-5 elapsed"></span>
+							</td>
+						</form>	
+					</tr>
+					
+					<tr class="result-row">
+						<form>
+							<td width="50%">
+								<b>GM Model Year Refresh</b><br/>
+								Load the Model Landing page asset using feature config service.
+							</td><td width="25%">
+								<input type="checkbox" name="force" value="1"> Check if the job is stuck and you need to force it.<br>
+								<input type="button" class="run-job feed-button" data-jobNum="6" data-feedName="GM Model Year Refresh" value="Start GM Model Year Refresh" />
+							</td><td style="vertical-align: middle">
+								<span class="progress-indicator-6 progress"></span>
+								<span class="elapsed-6 elapsed"></span>
+							</td>
+						</form>	
+					</tr>
+					
+					<tr class="result-row">
+						<form>
+							<td width="50%">
+								<b>Onstar Extract Job</b><br/>
+								This feed extracts dealer data for Onstar.
+							</td><td width="25%">
+								<input type="checkbox" name="force" value="1"> Check if the job is stuck and you need to force it.<br>
+								<input type="button" class="run-job feed-button" data-jobNum="7" data-feedName="Onstar Extract Job" value="Start Onstar Extract Job" />
+							</td><td style="vertical-align: middle">
+								<span class="progress-indicator-7 progress"></span>
+								<span class="elapsed-7 elapsed"></span>
+							</td>
+						</form>	
+					</tr>
+					
+					<tr class="result-row">
+						<form>
+							<td width="50%">
+								<b>SCD Extract Job</b><br/>
+								This feed extracts Shop Click Drive enrolled dealer data.
+							</td><td width="25%">
+								<input type="checkbox" name="force" value="1"> Check if the job is stuck and you need to force it.<br>
+								<input type="button" class="run-job feed-button" data-jobNum="8" data-feedName="SCD Extract Job" value="Start SCD Extract Job" />
+							</td><td style="vertical-align: middle">
+								<span class="progress-indicator-8 progress"></span>
+								<span class="elapsed-8 elapsed"></span>
+							</td>
+						</form>	
+					</tr>
+					
+					<tr class="result-row">
+						<form>
+							<td width="50%">
+								<b>SPO Extract Job</b><br/>
+								This feed extracts dealer data for SPO.
+							</td><td width="25%">
+								<input type="checkbox" name="force" value="1"> Check if the job is stuck and you need to force it.<br>
+								<input type="button" class="run-job feed-button" data-jobNum="9" data-feedName="SPO Extract Job" value="Start SPO Extract Job" />
+							</td><td style="vertical-align: middle">
+								<span class="progress-indicator-9 progress"></span>
+								<span class="elapsed-9 elapsed"></span>
+							</td>
+						</form>	
+					</tr>
+					
+				</table>
+				<div id="pageination-interface">
+					
+
+			
+			
+			<div align="center">
+			
+				
+					
+					
+					<div class="pagination-meta">
+						
+						9 results
+					</div>
+					
+					
+				
+				
+			
+			</div>
+				</div>
+		
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>

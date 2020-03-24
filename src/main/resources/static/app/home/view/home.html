@@ -1,0 +1,51 @@
+<div class="main">
+
+    <!-- slider -->
+    <header  class="header-part">
+        <div id="home" class="wrapper">
+            <!-- Fixed navbar -->
+            <nav-bar></nav-bar>
+        </div>
+    </header>
+    <!-- OUR TEAM -->
+    <section id="team" class="our-team section-padding custom-body">
+        <div class="container">
+            <div class="row">
+                <div class="wow zoomIn col-xs-12 text-center p-padding">
+                    <h1 class="section-title">Choose your dream car</h1>
+                    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed accumsan venenatis lectus sed sollicitudin. Duis in odio ex. Sed elementum varius enim. In vel tincidunt lorem. Donec gravida felis vitae ipsum pharetra maximus.</p>
+                </div><!-- col-xs-12 -->
+            </div><!-- row -->
+
+            <div class="wow zoomIn col-xs-12 col-sm-6 col-md-3" ng-repeat="model in models" ng-if="models.length > 0">
+                <div class="grid">
+                    <figure class="effect-duke">
+                        <img class="img-responsive" ng-src="{{model.image}}" alt="{{make}} {{model.name}}" ng-if="model.image">
+                        <img class="img-responsive" ng-src="app/images/default_car.jpeg" alt="{{make}} {{model.name}}" ng-if="!model.image">
+                        <figcaption>
+                            <div class="icon-holder">
+                                <ul >
+                                    <li>
+                                        <a href="#/{{make}}/{{model.niceName}}/{{model.years[0].year}}/configuration/powertrain" class="btn btn-primary configure-btn">Configure</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </figcaption>
+                    </figure>
+                </div>
+                <div class="team-designation">
+                    <p>{{make}} {{model.name}}</p>
+                    <span>{{model.years[0].year}}</span>
+                </div>
+            </div>
+
+            <div class="custom-loader" ng-if="!models"></div>
+        </div><!-- container -->
+    </section><!-- our team -->
+
+    <div class="clearfix"></div>
+    <!-- footer -->
+    <custom-footer show-button="false" next-click="next()"></custom-footer>
+    <!-- /Footer -->
+
+</div><!-- /.main -->
